@@ -1,0 +1,50 @@
+# Kubernetes Job: parallel tenant migration runner.
+# Fix #6: runs migrations across all tenants in parallel (DOP=20).
+# Triggered by CI/CD pipeline after deployment, before traffic switch.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tenant-migration-{{BUILD_ID}}
+  namespace: retail-pos
+  labels:
+    app: tenant-migration
+    build: "{{BUILD_ID}}"
+spec:
+  backoffLimit: 2       # Retry job up to 2 times on failure
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+      - name: migration-runner
+        image: retail-pos/migration-runner:{{BUILD_ID}}
+        command:
+          - dotnet
+          - RetailPos.MigrationRunner.dll
+          - --migration-name
+          - "{{MIGRATION_NAME}}"
+          - --degree-of-parallelism
+          - "20"
+          - --dry-run
+          - "false"
+        env:
+        - name: ConnectionStrings__PgBouncer
+          valueFrom:
+            secretKeyRef:
+              name: pg-secrets
+              key: pgbouncer-connection-string
+        - name: ConnectionStrings__MasterDb
+          valueFrom:
+            secretKeyRef:
+              name: pg-secrets
+              key: master-connection-string
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
