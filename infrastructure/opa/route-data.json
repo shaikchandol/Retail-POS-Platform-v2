@@ -1,0 +1,25 @@
+{
+  "route_policies": {
+    "/api/v1/sales": {
+      "allowed_roles": ["cashier", "manager", "admin"]
+    },
+    "/api/v1/sales/void": {
+      "allowed_roles": ["manager", "admin"],
+      "required_claims": ["void_permission"]
+    },
+    "/api/v1/reports": {
+      "allowed_roles": ["manager", "admin", "analyst"]
+    },
+    "/api/v1/admin": {
+      "allowed_roles": ["admin"],
+      "required_claims": ["mfa_completed"]
+    },
+    "/api/v1/payments": {
+      "allowed_roles": ["cashier", "manager", "admin"],
+      "pci": true,
+      "require_mfa": true
+    }
+  },
+  "blocked_tenants": {},
+  "rate_limits": {}
+}
