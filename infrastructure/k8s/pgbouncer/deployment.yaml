@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: retail-pos
+  labels:
+    app: pgbouncer
+    tier: data
+spec:
+  replicas: 2          # 2 replicas for HA; PgBouncer is stateless
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+        tier: data
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70    # pgbouncer user
+      containers:
+      - name: pgbouncer
+        image: edoburu/pgbouncer:1.22
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: pgbouncer-secrets
+              key: database-url
+        - name: POOL_MODE
+          value: "transaction"
+        - name: MAX_CLIENT_CONN
+          value: "2000"
+        - name: DEFAULT_POOL_SIZE
+          value: "25"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: retail-pos
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
